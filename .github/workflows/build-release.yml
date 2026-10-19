@@ -1,0 +1,218 @@
+name: Build and Package WordPress Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Fetches full history for 'added' date calculation
+
+      - name: Package Plugin ZIP
+        run: |
+          SLUG="${{ github.event.repository.name }}"
+          
+          mkdir -p "dist/${SLUG}"
+          
+          rsync -rc \
+            --exclude='.agents' \
+            --exclude='.git*' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='skills-lock.json' \
+            --exclude='composer.json' \
+            --exclude='composer.lock' \
+            --exclude='.phpcs.xml.dist' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='.vscode' \
+            --exclude='.eslintrc.js' \
+            --exclude='.prettierrc' \
+            --exclude='.stylelintrc.json' \
+            --exclude='.gitignore' \
+            --exclude='dist' \
+            ./ "dist/${SLUG}/"
+
+          cd dist
+          zip -r "../${SLUG}.zip" "${SLUG}"
+
+      - name: Generate Manifest and Attach Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+
+          SLUG="${{ github.event.repository.name }}"
+          OWNER="${{ github.repository_owner }}"
+
+          # Ensure release exists on GitHub before querying notes or uploading
+          gh release create "$TAG_NAME" --title "Release $TAG_NAME" --generate-notes 2>/dev/null || true
+
+          # Dynamically parse headers and output manifest.json
+          python3 - <<EOF
+          import os, re, json, subprocess
+          from datetime import datetime
+
+          slug = "${SLUG}"
+          owner = "${OWNER}"
+          tag_name = "${TAG_NAME}"
+          version = tag_name.lstrip("v")
+
+          # Locate main plugin file
+          plugin_file = f"{slug}.php"
+          if not os.path.exists(plugin_file):
+              for file in os.listdir("."):
+                  if file.endswith(".php"):
+                      with open(file, "r", encoding="utf-8", errors="ignore") as f:
+                          if "Plugin Name:" in f.read():
+                              plugin_file = file
+                              break
+
+          headers = {}
+          if os.path.exists(plugin_file):
+              with open(plugin_file, "r", encoding="utf-8", errors="ignore") as f:
+                  content = f.read(8192)
+                  
+                  def get_header(key):
+                      match = re.search(rf"^\s*\*?\s*{key}:\s*(.*)$", content, re.MULTILINE | re.IGNORECASE)
+                      return match.group(1).strip() if match else ""
+
+                  headers['name'] = get_header("Plugin Name") or slug
+                  headers['plugin_uri'] = get_header("Plugin URI")
+                  headers['description'] = get_header("Description")
+                  headers['author'] = get_header("Author")
+                  headers['author_uri'] = get_header("Author URI")
+                  headers['author_profile'] = get_header("Author Profile")
+                  headers['donate_link'] = get_header("Donate link")
+                  headers['requires'] = get_header("Requires at least")
+                  headers['tested'] = get_header("Tested up to")
+                  headers['requires_php'] = get_header("Requires PHP")
+
+          # Format Author HTML string
+          author_str = headers.get('author', '')
+          if headers.get('author_uri') and author_str:
+              author_html = f"<a href='{headers['author_uri']}'>{author_str}</a>"
+          else:
+              author_html = author_str
+
+          # Parse up to the 5 most recent releases from readme.txt
+          changelog_html = ""
+          if os.path.exists("readme.txt"):
+              try:
+                  with open("readme.txt", "r", encoding="utf-8", errors="ignore") as f:
+                      readme_content = f.read()
+
+                  # Isolate the entire == Changelog == section
+                  changelog_match = re.search(
+                      r"==\s*Changelog\s*==\s*\n(.*?)(?=\n==|\Z)",
+                      readme_content,
+                      re.DOTALL | re.IGNORECASE
+                  )
+
+                  if changelog_match:
+                      changelog_text = changelog_match.group(1)
+
+                      # Split section into header/body pairs based on "= X.Y.Z =" markers
+                      entries = re.split(
+                          r"^=\s*([^=]+?)\s*=\s*$",
+                          changelog_text,
+                          flags=re.MULTILINE
+                      )
+
+                      formatted_blocks = []
+                      # entries = [preamble, ver1, body1, ver2, body2, ...]
+                      # Loop through up to 5 release entries (indices 1, 3, 5, 7, 9)
+                      for i in range(1, min(len(entries), 11), 2):
+                          ver = entries[i].strip()
+                          raw_notes = entries[i + 1].strip()
+
+                          formatted_blocks.append(f"<h4>{ver}</h4>")
+                          in_list = False
+
+                          for line in raw_notes.splitlines():
+                              line = line.strip()
+                              if not line:
+                                  continue
+
+                              if line.startswith(("* ", "- ")):
+                                  if not in_list:
+                                      formatted_blocks.append("<ul>")
+                                      in_list = True
+                                  formatted_blocks.append(f"<li>{line[2:].strip()}</li>")
+                              else:
+                                  if in_list:
+                                      formatted_blocks.append("</ul>")
+                                      in_list = False
+                                  formatted_blocks.append(f"<p>{line}</p>")
+
+                          if in_list:
+                              formatted_blocks.append("</ul>")
+
+                      changelog_html = "".join(formatted_blocks)
+              except Exception:
+                  pass
+
+          if not changelog_html:
+              changelog_html = f"<h4>{version}</h4><p>Release details not available.</p>"
+
+          # Extract initial commit date for 'added'
+          try:
+              added_date = subprocess.check_output(
+                  ["git", "log", "--reverse", "--format=%ad", "--date=format:%Y-%m-%d %H:%M:%S"],
+                  text=True
+              ).splitlines()[0]
+          except Exception:
+              added_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+          last_updated = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+          manifest = {
+              "name": headers.get('name', slug),
+              "slug": slug,
+              "author": author_html,
+              "author_profile": headers.get('author_profile', ''),
+              "donate_link": headers.get('donate_link', ''),
+              "version": version,
+              "download_url": f"https://github.com/{owner}/{slug}/releases/download/{tag_name}/{slug}.zip",
+              "requires": headers.get('requires', ''),
+              "tested": headers.get('tested', ''),
+              "requires_php": headers.get('requires_php', ''),
+              "added": added_date,
+              "last_updated": last_updated,
+              "homepage": headers.get('plugin_uri', ''),
+              "sections": {
+                  "description": headers.get('description', ''),
+                  "installation": "Extract the zip file and place the plugin folder inside wp-content/plugins.",
+                  "changelog": changelog_html
+              },
+              "icons": {
+                  "1x": "",
+                  "2x": ""
+              },
+              "banners": {
+                  "low": "",
+                  "high": ""
+              }
+          }
+
+          with open("manifest.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=4)
+          EOF
+
+          # Upload ZIP and manifest.json to the release
+          gh release upload "$TAG_NAME" "${SLUG}.zip" manifest.json --clobber
