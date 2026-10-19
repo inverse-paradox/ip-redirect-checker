@@ -8,6 +8,17 @@
 	color: #50575e;
 }
 
+.iprc-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 320px;
+	gap: 24px;
+	align-items: start;
+}
+
+.iprc-layout > div {
+	min-width: 0;
+}
+
 .iprc-summary {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -40,17 +51,6 @@
 	font-weight: 600;
 }
 
-.iprc-layout {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) 320px;
-	gap: 24px;
-	align-items: start;
-}
-
-.iprc-layout > div {
-	min-width: 0;
-}
-
 .iprc-wrap .iprc-panel {
 	min-width: 0;
 	margin: 0 0 24px;
@@ -78,6 +78,14 @@
 .iprc-wrap .iprc-panel .inside {
 	margin: 0;
 	padding: 16px 20px 20px;
+}
+
+.iprc-run-status p:empty {
+	display: none;
+}
+
+.iprc-run-status {
+	margin: 12px 0;
 }
 
 .iprc-panel .inside > :first-child,
@@ -212,25 +220,19 @@
 	margin-top: 0;
 }
 
-.iprc-run-status p:empty {
-	display: none;
-}
-
-.iprc-run-status {
-	margin: 12px 0;
-}
-
 .iprc-wrap [hidden] {
 	display: none !important;
 }
 
 @media screen and (max-width: 1100px) {
+
 	.iprc-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }
 
 @media screen and (max-width: 600px) {
+
 	.iprc-summary > div {
 		padding: 12px;
 	}
