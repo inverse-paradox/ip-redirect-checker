@@ -1,0 +1,18 @@
+{
+  "name": "inverse-paradox-framework",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "lint:js": "wp-scripts lint-js",
+    "lint:js:fix": "wp-scripts lint-js --fix",
+    "lint:style": "wp-scripts lint-style",
+    "lint:style:fix": "wp-scripts lint-style --fix"
+  },
+  "devDependencies": {
+    "@wordpress/scripts": "^30.0.0",
+    "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "typescript": "^5.7.0"
+  }
+}

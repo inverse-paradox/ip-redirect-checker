@@ -1,0 +1,17 @@
+{
+  "name": "inverse-paradox/inverse-paradox-framework",
+  "type": "wordpress-plugin",
+  "require-dev": {
+    "wp-coding-standards/wpcs": "^3.0",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "scripts": {
+    "lint": "phpcs",
+    "fix": "phpcbf"
+  }
+}

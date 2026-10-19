@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<ruleset name="Custom Team Ruleset">
+    <description>WordPress Coding Standards tailored for our project.</description>
+
+	<!-- Scan current directory and subdirectories -->
+	<file>./</file>
+
+    <!-- Exclude generated, third-party, and non-PHP files -->
+    <arg name="extensions" value="php"/>
+    <exclude-pattern>/node_modules/*</exclude-pattern>
+    <exclude-pattern>/vendor/*</exclude-pattern>
+    <exclude-pattern>*/wp-content/plugins/(?!ip-|inverse-)[^/]+/</exclude-pattern>
+
+    <!-- Base ruleset -->
+    <rule ref="WordPress">
+        <!-- Turn off strict docblock commenting requirements -->
+        <exclude name="Squiz.Commenting.ClassComment"/>
+        <exclude name="Squiz.Commenting.FileComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment"/>
+        <exclude name="Squiz.Commenting.VariableComment"/>
+
+        <!-- Allow the project's preferred comment style -->
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+
+        <!-- Turn off strict WordPress class/file naming rules -->
+        <exclude name="WordPress.Files.FileName"/>
+
+        <!-- Turn off strict hook/function naming prefix rules -->
+        <exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+
+        <!-- Turn off internationalization / text-domain checks -->
+        <exclude name="WordPress.WP.I18n"/>
+
+		<exclude name="WordPress.PHP.YodaConditions.NotYoda"/>
+    </rule>
+</ruleset>
