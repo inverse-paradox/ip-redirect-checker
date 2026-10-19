@@ -23,6 +23,32 @@ final class IP_Redirect_Checker {
 	const BLOCK   = 'ip_redirect_checker_block_canonical';
 	const LOCK    = 'ip_redirect_checker_request_lock';
 
+	private $updater;
+
+	/**
+	 * Initiate plugin and hooks
+	 */
+	public function __construct() {
+
+		// Block WordPress canonical redirects when the setting is enabled (on by default).
+		if ( get_option( 'ip_redirect_checker_block_canonical', true ) ) {
+			add_filter( 'redirect_canonical', '__return_false' );
+		}
+
+		add_action( 'admin_menu', array( 'IP_Redirect_Checker', 'register_menu' ) );
+		add_action( 'admin_enqueue_scripts', array( 'IP_Redirect_Checker', 'enqueue_scripts' ) );
+		add_action( 'wp_ajax_ip_redirect_checker_run', array( 'IP_Redirect_Checker', 'ajax_run' ) );
+
+		if ( class_exists( '\InverseParadox\Framework\Updater' ) ) {
+			$this->updater = new \InverseParadox\Framework\Updater(
+				\IP_REDIRECT_CHECKER_FILE,
+				\IP_REDIRECT_CHECKER_VERSION,
+				'inverse-paradox',
+				'ip-redirect-checker'
+			);
+		}
+	}
+
 	/**
 	 * Load assets only on this plugin's Tools screen.
 	 *
