@@ -47,7 +47,6 @@ final class IP_Redirect_Checker {
 				'ip-redirect-checker'
 			);
 		}
-
 	}
 
 	/**
